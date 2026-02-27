@@ -17,7 +17,7 @@ const SecureChatApp = (() => {
   let _mode      = null;   // 'webrtc-relay' | 'webrtc-manual' | 'bluetooth'
   let _isHost    = false;
 
-  const DEFAULT_RELAY = 'wss://your-relay.onrender.com';
+  const DEFAULT_RELAY = 'wss://secure-chat-fixv.onrender.com';
 
   // ── Initialization ────────────────────────────────────────────────────────
 

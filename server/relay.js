@@ -16,6 +16,7 @@
  * Default port: 8080
  */
 
+const http      = require('http');
 const WebSocket = require('ws');
 
 const PORT          = parseInt(process.env.PORT) || parseInt(process.argv[2]) || 8080;
@@ -31,7 +32,15 @@ const rooms = new Map();
 // rateLimiter: Map<ip, lastJoinTimestamp>
 const rateLimiter = new Map();
 
-const wss = new WebSocket.Server({ port: PORT }, () => {
+// HTTP server — required by Render for health checks
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('SecureChat relay OK\n');
+});
+
+const wss = new WebSocket.Server({ server });
+
+server.listen(PORT, () => {
   console.log(`[relay] Signaling relay listening on ws://0.0.0.0:${PORT}`);
   console.log('[relay] Routes SDP/ICE only. No message content ever handled.');
 });

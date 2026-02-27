@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; connect-src 'self' ws: wss:; style-src 'self'; script-src 'self';">
+  <title>SecureChat</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+  <!-- ── WELCOME ──────────────────────────────────────────────────────────── -->
+  <div id="screen-welcome" class="screen">
+    <div class="screen-inner">
+
+      <div class="logo">
+        <div class="logo-title">SecureChat</div>
+        <div class="logo-sub">End-to-end encrypted · No server sees your messages</div>
+      </div>
+
+      <div class="relay-config">
+        <div class="input-group">
+          <label for="relay-url-input">Relay server (for WebRTC signaling)</label>
+          <input type="text" id="relay-url-input"
+                 placeholder="wss://your-relay.onrender.com"
+                 value="wss://your-relay.onrender.com">
+        </div>
+        <p>On LAN: run <code>node server/relay.js</code> and enter its address above.
+           No relay needed for Manual or Bluetooth modes.</p>
+      </div>
+
+      <div class="section-header">Via Relay Server (LAN / Internet)</div>
+      <button class="btn btn-primary" id="btn-start-relay">Start New Session</button>
+      <button class="btn" id="btn-join-relay">Join Existing Session</button>
+
+      <hr class="divider">
+
+      <div class="section-header">Manual / Offline (copy-paste SDP)</div>
+      <button class="btn" id="btn-start-manual">Host — Generate Connection Code</button>
+      <button class="btn" id="btn-join-manual">Join — Enter Host Code</button>
+
+      <hr class="divider">
+
+      <div class="section-header">Bluetooth (no internet required)</div>
+      <button class="btn" id="btn-start-bt">Host via Bluetooth</button>
+      <button class="btn" id="btn-join-bt">Connect via Bluetooth</button>
+
+    </div>
+  </div>
+
+  <!-- ── SESSION CODE ──────────────────────────────────────────────────────── -->
+  <div id="screen-session-code" class="screen">
+    <div class="screen-inner">
+      <h1>Session Code</h1>
+      <h2>Read this code to your peer verbally or in person</h2>
+
+      <div class="panel">
+        <div class="panel-label">Your session code</div>
+        <div id="session-code-display">----</div>
+        <div class="code-hint">Read this aloud to your peer. They must enter the same code.</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-label">Key fingerprint (optional extra verification)</div>
+        <div class="fingerprint" id="fingerprint-display">Generating…</div>
+        <p>If your peer reads the same fingerprint, there is no man-in-the-middle.</p>
+      </div>
+
+      <button class="btn btn-primary" id="btn-proceed-session">Connect →</button>
+      <button class="btn btn-danger" id="btn-cancel-session"
+              onclick="location.reload()">Cancel</button>
+
+      <p id="status-text" style="text-align:center;margin-top:12px;"></p>
+    </div>
+  </div>
+
+  <!-- ── KEY EXCHANGE ──────────────────────────────────────────────────────── -->
+  <div id="screen-key-exchange" class="screen">
+    <div class="screen-inner">
+      <h1>Establishing Secure Channel</h1>
+      <h2>Performing cryptographic key exchange</h2>
+
+      <div id="key-status-1" class="key-status wait">
+        <div class="dot"></div>
+        <span class="label">Connecting to peer…</span>
+      </div>
+      <div id="key-status-2" class="key-status">
+        <div class="dot"></div>
+        <span class="label">Waiting to derive shared key</span>
+      </div>
+      <div id="key-status-3" class="key-status">
+        <div class="dot"></div>
+        <span class="label">Waiting to verify keys</span>
+      </div>
+
+      <div class="connecting-status" style="margin-top:24px;">
+        <div class="spinner"></div>
+        <p id="status-text">Please wait…</p>
+      </div>
+
+      <button class="btn btn-danger" style="margin-top:24px;"
+              onclick="location.reload()">Abort</button>
+    </div>
+  </div>
+
+  <!-- ── MANUAL SDP ─────────────────────────────────────────────────────────── -->
+  <div id="screen-manual-sdp" class="screen">
+    <div class="screen-inner">
+      <h1>Manual Connection</h1>
+      <h2>Copy and paste codes between devices</h2>
+
+      <!-- HOST side -->
+      <div id="manual-host-section">
+        <div class="panel">
+          <div class="panel-label">Step 1 — Your public key (copy and send to peer)</div>
+          <div class="sdp-box" id="offer-sdp-display"></div>
+          <button class="btn btn-sm" onclick="
+            SecureChatUI.copyToClipboard(
+              document.getElementById('offer-sdp-display').textContent
+            ).then(() => this.textContent = 'Copied!')
+          ">Copy</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-label">Step 2 — Paste peer's public key</div>
+          <textarea id="manual-peer-pubkey" placeholder="Paste peer's public key here…"></textarea>
+          <button class="btn btn-primary" id="btn-manual-got-pubkey">
+            Generate Connection Offer →
+          </button>
+        </div>
+
+        <div class="panel" id="manual-answer-section" style="display:none;">
+          <div class="panel-label">Step 3 — Paste peer's answer</div>
+          <textarea id="manual-answer-input" placeholder="Paste peer's answer SDP here…"></textarea>
+          <button class="btn btn-primary" id="btn-manual-apply-answer">Apply Answer →</button>
+        </div>
+      </div>
+
+      <!-- JOINER side -->
+      <div id="manual-joiner-section" style="display:none;">
+        <div class="panel">
+          <div class="panel-label">Your public key (send to host)</div>
+          <div class="sdp-box" id="joiner-pubkey-display"></div>
+          <button class="btn btn-sm" onclick="
+            SecureChatUI.copyToClipboard(
+              document.getElementById('joiner-pubkey-display').textContent
+            ).then(() => this.textContent = 'Copied!')
+          ">Copy</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-label">Paste host's public key</div>
+          <textarea id="manual-peer-pubkey" placeholder="Paste host's public key…"></textarea>
+        </div>
+
+        <div class="panel">
+          <div class="panel-label">Paste host's connection offer (SDP)</div>
+          <textarea id="manual-offer-input" placeholder="Paste host's offer SDP here…"></textarea>
+          <button class="btn btn-primary" id="btn-manual-generate-answer">
+            Generate Answer →
+          </button>
+        </div>
+
+        <div id="answer-display-section" style="display:none;">
+          <div class="panel">
+            <div class="panel-label">Your answer (send to host)</div>
+            <div class="sdp-box" id="answer-sdp-display"></div>
+            <button class="btn btn-sm" onclick="
+              SecureChatUI.copyToClipboard(
+                document.getElementById('answer-sdp-display').textContent
+              ).then(() => this.textContent = 'Copied!')
+            ">Copy</button>
+          </div>
+          <p>Send this answer to the host. Once they apply it, the connection will establish automatically.</p>
+        </div>
+      </div>
+
+      <button class="btn btn-danger" onclick="location.reload()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ── CHAT ──────────────────────────────────────────────────────────────── -->
+  <div id="screen-chat" class="screen">
+
+    <div id="chat-header">
+      <span class="session-code-mini" id="chat-session-code"></span>
+      <span class="transport-badge" id="chat-transport-badge"></span>
+      <button class="end-btn" id="chat-end-btn">End Session</button>
+    </div>
+
+    <div id="messages"></div>
+
+    <div id="chat-input-area">
+      <textarea id="message-input"
+                placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
+                rows="1"></textarea>
+      <button id="send-btn">Send</button>
+    </div>
+
+  </div>
+
+  <!-- ── ERROR ─────────────────────────────────────────────────────────────── -->
+  <div id="screen-error" class="screen">
+    <div class="screen-inner">
+      <h1>Connection Error</h1>
+
+      <div class="error-box" id="error-message">An error occurred.</div>
+
+      <p>If you see "Key mismatch", verify the session code matches exactly
+         and try again. This could indicate a man-in-the-middle attack.</p>
+
+      <button class="btn btn-primary" onclick="location.reload()">Start Over</button>
+    </div>
+  </div>
+
+  <!-- ── SESSION END ────────────────────────────────────────────────────────── -->
+  <div id="screen-session-end" class="screen">
+    <div class="screen-inner">
+
+      <div class="cleared-notice">
+        <div class="checkmark">[OK]</div>
+        <h1>Session Ended</h1>
+        <p>All encryption keys have been permanently deleted from memory.<br>
+           No message data was stored anywhere.</p>
+      </div>
+
+      <button class="btn btn-primary" id="btn-new-session">Start New Session</button>
+
+    </div>
+  </div>
+
+  <!-- ── Status bar ─────────────────────────────────────────────────────────── -->
+  <div id="status-bar">
+    <span id="transport-indicator"></span>
+    <span id="encryption-indicator">AES-256-GCM · ECDH-P256</span>
+    <span id="connection-state"></span>
+  </div>
+
+  <!-- Scripts in dependency order — no bundler needed -->
+  <script src="js/crypto.js"></script>
+  <script src="js/session.js"></script>
+  <script src="js/signaling.js"></script>
+  <script src="js/webrtc.js"></script>
+  <script src="js/bluetooth.js"></script>
+  <script src="js/transport.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

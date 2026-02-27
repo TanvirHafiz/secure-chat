@@ -1,0 +1,12 @@
+{
+  "name": "secure-chat-relay",
+  "version": "1.0.0",
+  "description": "Minimal WebRTC signaling relay — routes SDP/ICE only, never message content",
+  "main": "relay.js",
+  "scripts": {
+    "start": "node relay.js"
+  },
+  "dependencies": {
+    "ws": "^8.0.0"
+  }
+}
